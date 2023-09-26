@@ -29,7 +29,7 @@ import java.util.UUID;
 public class ChannelController {
 
 
-    @Value("${spring.servlet.multipart.location}")  // applocation.properties에 있는 변수
+    @Value("${youtube.upload.path}")  // applocation.properties에 있는 변수
     private String uploadPath;
 
 
@@ -78,7 +78,7 @@ public class ChannelController {
 
         // 파일 업로드가 끝났으니 경로 (savePhoto), name, desc, memberId (id)
         Channel vo = new Channel();
-        vo.setChannelPhoto(savePhoto);
+        vo.setChannelPhoto(uuid + "_" +realPhoto);
         vo.setChannelName(name);
         vo.setChannelDesc(desc);
 

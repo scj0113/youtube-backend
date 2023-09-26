@@ -4,9 +4,15 @@ import com.kh.youtube.domain.*;
 import com.kh.youtube.service.VideoCommentService;
 import com.kh.youtube.service.VideoLikeService;
 import com.kh.youtube.service.VideoService;
+import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,7 +31,7 @@ import java.util.UUID;
 @CrossOrigin(origins = {"*"},maxAge = 6000)
 public class VideoController {
 
-    @Value("${spring.servlet.multipart.location}")  // applocation.properties에 있는 변수
+    @Value("${youtube.upload.path}")  // applocation.properties에 있는 변수
     private String uploadPath;
 
     @Autowired
@@ -40,13 +46,54 @@ public class VideoController {
 
     // 영상 전체 조회 : GET - http://localhost:8080/api/video
     @GetMapping("/video")
-    public ResponseEntity<List<Video>> VideoList() {
-        return ResponseEntity.status(HttpStatus.OK).body(videoService.showAll());
+    public ResponseEntity<List<Video>> VideoList(@RequestParam(name="page", defaultValue = "1") int page, @RequestParam(name="category", required = false) Integer category) {
+
+
+        // 정렬
+        Sort sort = Sort.by("videoCode").descending();
+
+        // 한 페이지의 10개
+        Pageable pageable = PageRequest.of(page -1, 20, sort);
+        
+        // 동적 쿼리를 위한 QueryDSL을 사용한 코드들 추가
+
+        // 1. Q도메인 클래스를 가져와야 한다.
+        QVideo qVideo = QVideo.video;
+
+        // 2. BooleanBuilder는 where문에 들어가는 조건들을 넣어주는 컨테이너
+        BooleanBuilder builder = new BooleanBuilder();
+
+        if(category!=null) {
+            // 3. 원하는 조건은 필드값과 같이 결합해서 생성한다.
+            BooleanExpression expression = qVideo.category.categoryCode.eq(category);
+
+            // 4. 만들어진 조건은 where문에 and나 or 같은 키워드와 결합한다.
+            builder.and(expression);
+        }
+
+        
+        
+        Page<Video> result = videoService.showAll(pageable, builder);
+
+        log.info("Total Pages : " + result.getTotalPages());  // 총 몇 페이지
+        log.info("Total Count : " + result.getTotalElements());  // 전체 페이지
+        log.info("Page Number : " + result.getNumber());  // 현재 페이지 번호
+        log.info("Page Size : " + result.getSize()); // 페이지당 데이터 개수
+        log.info("Next Page : " + result.hasNext()); // 다음 페이지가 있는지 존재 여부
+        log.info("First Page : " + result.isFirst()); // 시작 페이지 여부
+
+
+//        return ResponseEntity.status(HttpStatus.OK).build();
+        return ResponseEntity.status(HttpStatus.OK).body(result.getContent());
     }
 
+
+
+    
+    
     // 영상 추가 : POST - http://localhost:8080/api/video
     @PostMapping("/video")
-    public ResponseEntity<Video> createVideo(MultipartFile video, MultipartFile image, String title, String desc, String categoryCode) {
+    public ResponseEntity<Video> createVideo(MultipartFile video, MultipartFile image, String title, @RequestParam(name = "desc",required = false) String desc, String categoryCode) {
         log.info("video : " + video);
         log.info("image : " + image);
         log.info("title : " + title);
@@ -87,15 +134,15 @@ public class VideoController {
         Video vo = new Video();
         vo.setVideoTitle(title);
         vo.setVideoDesc(desc);
-        vo.setVideoUrl(saveVideo);
-        vo.setVideoPhoto(saveImage);
+        vo.setVideoUrl(uuid + "_" +realVideo);
+        vo.setVideoPhoto(uuid + "_" + realImage);
 
         Category category = new Category();
         category.setCategoryCode(Integer.parseInt(categoryCode));
         vo.setCategory(category);
 
         Channel channel = new Channel();
-        channel.setChannelCode(22);
+        channel.setChannelCode(25);
         vo.setChannel(channel);
 
         Member member = new Member();
